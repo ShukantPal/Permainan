@@ -17,8 +17,8 @@ public class PermainanApp extends Application {
 		gameInstances = new Game[]{ Game.doubleUserGame() };
 		
 		gameStage.setScene(BoardController.newBoardScene(gameInstances[0]));
-		gameStage.setHeight(600);
-		gameStage.setWidth(600);
+		gameStage.setHeight(800);
+		gameStage.setWidth(800);
 		gameStage.setTitle("Permanin/Surakurta Game");
 		gameStage.show();
 		

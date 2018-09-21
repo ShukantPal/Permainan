@@ -18,7 +18,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.Paint;
 
 /**
- * Self-adjusting button for Permanin that has two perpendicular lines in its
+ * Self-adjusting button for Permainan that has two perpendicular lines in its
  * background to form the game's grid. It allows the user to drag-and-drop to
  * form his/her move.
  * 
@@ -26,9 +26,10 @@ import javafx.scene.paint.Paint;
  */
 public class BoardInput extends Button {
 	
-	private static final Paint starterPlayerColor = Color.RED;
-	private static final Paint otherPlayerColor = Color.BLUE;
+	private static final Paint starterPlayerColor = Color.BLACK;
+	private static final Paint otherPlayerColor = Color.RED;
 	
+	@SuppressWarnings("unused")
 	private static final Insets pebblePos = new Insets(10, 10, 10, 10);
 	
 	private BackgroundFill pebbleFill;
@@ -37,9 +38,28 @@ public class BoardInput extends Button {
 	private int column;
 	private Game gameInstance;
 	
+	public static boolean isPebbleData(String pebbleData) {
+		return (pebbleData.startsWith("Permanin.move[") &&
+				pebbleData.endsWith("]"));
+	}
+	
+	public static int[] toCoordinates(String pebbleData) {
+		int[] point = new int[2];
+		
+		int commaIndex = pebbleData.indexOf(',');
+		point[0] = Integer.parseInt(
+				pebbleData.substring(14, commaIndex));
+		point[1] = Integer.parseInt(
+				pebbleData.substring(commaIndex + 1, pebbleData.length() - 1));
+		
+		return (point);
+	}
+	
 	/**
-	 * Handles the event fired when the user initiates a drag on this
-	 * board input, which in turn allows him/her to place a move.
+	 * Initiates the drag-and-drop wanted by the user, so that he/she can move
+	 * a pebble on the board. The clip-board is attached with a string holding
+	 * the coordinates of the source button-input with the format - <code>
+	 * Permanin.move["row","column"]</code>
 	 */
 	private EventHandler<MouseEvent> pieceDragDetector = new EventHandler<MouseEvent>() {
 		
@@ -63,7 +83,8 @@ public class BoardInput extends Button {
 
 		@Override
 		public void handle(DragEvent e) {
-			if(e.getDragboard().hasString() && pebbleFill == null) {
+			if(e.getDragboard().hasString() && pebbleFill == null &&
+					isPebbleData(e.getDragboard().getString())) {
 				e.acceptTransferModes(TransferMode.ANY);
 			}
 			
@@ -77,18 +98,11 @@ public class BoardInput extends Button {
 		@Override
 		public void handle(DragEvent e) {
 			if(e.getDragboard().hasString()) {
-				String pieceData = e.getDragboard().getString();
+				String pebbleData = e.getDragboard().getString();
 				
-				if(pieceData.startsWith("Permanin.move[")
-						&& pieceData.endsWith("]")) {
-					int commaIndex = pieceData.indexOf(',');
-					
-					int srcRow = Integer.parseInt(
-							pieceData.substring(14, commaIndex));
-					int srcColumn = Integer.parseInt(
-							pieceData.substring(commaIndex + 1, pieceData.length() - 1));
-
-					gameInstance.notifyInput(srcRow, srcColumn, row, column);
+				if(isPebbleData(pebbleData)) {
+					int[] coordinates = toCoordinates(pebbleData);
+					gameInstance.notifyInput(coordinates[0], coordinates[1], row, column);
 				}
 			}
 	
@@ -114,6 +128,14 @@ public class BoardInput extends Button {
 		setOnDragOver(pieceVerifier);
 		setOnDragDropped(pieceAcceptor);
 		setBackground(Background.EMPTY);
+	}
+	
+	public int row() {
+		return (row);
+	}
+	
+	public int column() {
+		return (column);
 	}
 	
 	public void putPebble(Pebble pebble) {

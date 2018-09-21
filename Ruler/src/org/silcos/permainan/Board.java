@@ -5,6 +5,11 @@ import java.util.LinkedList;
 /**
  * Holds the state of the Permanin game board.
  * 
+ * <p>
+ * Corners of this board are accessed using their indexes. They are
+ * ordered as upper-left, upper-right, bottom-right, and bottom-left
+ * and the indexes are 0, 1, 2, and 3 respectively.
+ * 
  * @author Shukant Pal
  */
 public class Board {
@@ -34,6 +39,9 @@ public class Board {
 	private Point[][] grid;
 	private LinkedList<BoardChangeListener> boardChangeListeners;
 	
+	private Connector outerCircuits[];
+	private Connector innerCircuits[];
+	
 	/**
 	 * Returns whether the given line is valid, and lies on this board
 	 * or not.
@@ -57,6 +65,51 @@ public class Board {
 	}
 	
 	/**
+	 * Returns the orientation with which the point at the given coordinates
+	 * will connect with its external connector, if any exists. This is always
+	 * perpendicular to the edge on which the point lies (<tt>UNDEFINED</tt>
+	 * for internal points).
+	 * 
+	 * @param row - the row of the point's coordinates
+	 * @param column - the column of the point's coordinates
+	 * @return - the orientation with which the point will connect
+	 */
+	private static ConnectorOrientation loopOrientationAt(int row, int column) {
+		if(row == 0) {
+			return (ConnectorOrientation.UP);
+		} else if(row == 5) {
+			return (ConnectorOrientation.DOWN);
+		} else if(column == 0) {
+			return (ConnectorOrientation.LEFT);
+		} else if(column == 5) {
+			return (ConnectorOrientation.RIGHT);
+		}
+		
+		return (ConnectorOrientation.UNDEFINED);
+	}
+	
+	/**
+	 * Associates the connector with the points at the coordinates fed
+	 * into it, .i.e. points at (row0(), column0()) and
+	 * (row1(), column1()) and also sets the connector orientations.
+	 * 
+	 * @param connector - the connector to link proper
+	 */
+	private void linkConnector(Connector connector) {
+		grid[connector.row0()][connector.column0()]
+				.setExternalConnector(connector);
+		
+		connector.setLink0(loopOrientationAt(
+				connector.row0(), connector.column0()));
+		
+		grid[connector.row1()][connector.column1()]
+				.setExternalConnector(connector);
+		
+		connector.setLink1(loopOrientationAt(
+				connector.row1(), connector.column1()));
+	}
+	
+	/**
 	 * Invokes all the registered board-change event listeners using
 	 * the given <tt>BoardChangeEvent</tt>.
 	 * 
@@ -73,6 +126,69 @@ public class Board {
 	private Board() {
 		grid = new Point[linearSize][linearSize];
 		boardChangeListeners = new LinkedList<BoardChangeListener>();
+		
+		innerCircuits = new Connector[] {
+				new Connector(1, 0, 0, 1),
+				new Connector(0, 4, 1, 5),
+				new Connector(4, 5, 5, 4),
+				new Connector(5, 1, 4, 0)
+		};
+		
+		outerCircuits = new Connector[] {
+				new Connector(2, 0, 0, 2),
+				new Connector(0, 3, 2, 5),
+				new Connector(3, 5, 5, 3),
+				new Connector(5, 2, 3, 0)
+		};
+	}
+	
+	public Connector externalConnectorAt(int row, int column) {
+		if(inBounds(row, column)) {
+			return (grid[row][column].getExternalConnector());
+		} else {
+			return (null);
+		}
+	}
+	
+	/**
+	 * Returns the inner-circuit connector for the given corner (given
+	 * by index). It connects the points on the edges that are one
+	 * unit away from the corner.
+	 * 
+	 * @param index - index of the corner for the inner-circuit
+	 * @see Board
+	 */
+	public Connector innerCircuit(int index) {
+		return (innerCircuits[index]);
+	}
+	
+	/**
+	 * Returns the outer-circuit connector for the given corner (given
+	 * by index). It connects the points on the edges that are two
+	 * units away from the corner.
+	 * 
+	 * @param index - index of the corner for the outer circuit
+	 * @see Board
+	 */
+	public Connector outerCircuit(int index) {
+		return (outerCircuits[index]);
+	}
+	
+	/**
+	 * Returns the pebble placed at the given coordinates, provided
+	 * they are in-bounds; otherwise, null is returned, which cannot be
+	 * distinguished from "empty".
+	 * 
+	 * @param row - the row of the point at which pebble is required
+	 * @param column - the column of the point at which pebble is
+	 * 				required
+	 */
+	public Pebble pebbleAt(int row, int column) {
+		if(inBounds(row, column)) {
+			return (grid[row][column].getHolder());
+		} else {
+			return (null);
+		}
 	}
 	
 	/**
@@ -102,11 +218,19 @@ public class Board {
 	}
 	
 	/**
+	 * <p>
 	 * Enforces the move given by a player/user on this board, placing the
 	 * target pebble from the <tt>(sourceRow, sourceColumn)</tt> source
 	 * coordinates to the <tt>(targetRow, targetColumn)</tt> target
 	 * coordinates. To do so, the source must be filled and the target must
-	 * already be empty.
+	 * already be empty. In addition, a pebble may only move left, up, down,
+	 * right, or diagonally.
+	 * 
+	 * <p>
+	 * This adjacency rule is violated in the case of two points connected by
+	 * an loop (via <tt>Connector</tt> objects). Any two points mutually
+	 * connected through their <tt>externalConnector</tt> property can transfer
+	 * pebbles.
 	 * 
 	 * @param sourceRow - the row of the original point holder
 	 * @param sourceColumn - the column of the original point holder
@@ -116,16 +240,57 @@ public class Board {
 	 */
 	public boolean movePebble(int sourceRow, int sourceColumn,
 			int targetRow, int targetColumn) {
-		if(!grid[targetRow][targetColumn].isEmpty()
-				|| grid[sourceRow][sourceColumn].isEmpty())
+		if(grid[sourceRow][sourceColumn].isEmpty()) {
 			return (false);
-
+		} else if(!grid[targetRow][targetColumn].isEmpty()
+				&& grid[targetRow][targetColumn].getHolder().owner()
+				== grid[sourceRow][sourceColumn].getHolder().owner()) {
+			/*
+			 * Here, we allow players to kill enemy pebbles that are adjacent
+			 * to their pebbles. This is a violation of the "rules". But some
+			 * front-ends may want this feature, and hence, it is the UI
+			 * responsible for "not allowing" pieces to be killed by moving
+			 * adjacently (without going through a loop).
+			 */
+			
+			return (false);
+		} else {
+			Connector sourceTargetLoop = externalConnectorAt(
+					sourceRow, sourceColumn);
+			boolean loopExists = false;
+			
+			if(sourceTargetLoop != null) {
+				if(sourceRow == sourceTargetLoop.row0()) {
+					if(targetRow == sourceTargetLoop.row1())
+						loopExists = true;
+				} else {
+					if(targetRow == sourceTargetLoop.row0()) {
+						loopExists = true;
+					}
+				}
+				
+				if(loopExists)
+					System.out.println("true loop");
+			}
+			
+			if(!loopExists && (Math.abs(sourceRow - targetRow) > 1 ||
+					Math.abs(sourceColumn - targetColumn) > 1)) {
+				return (false);
+			}
+		}
+		
 		Pebble target = grid[sourceRow][sourceColumn].getHolder();
+		Pebble victim = grid[targetRow][targetColumn].getHolder();
+		
 		grid[targetRow][targetColumn].setHolder(target);
 		grid[sourceRow][sourceColumn].setHolder(null);
 		
-		fireEvent(BoardChangeEvent.newPebbleMovedEvent(target,
-				sourceRow, sourceColumn, targetRow, targetColumn));
+		if(victim == null)
+			fireEvent(BoardChangeEvent.newPebbleMovedEvent(target,
+					sourceRow, sourceColumn, targetRow, targetColumn));
+		else
+			fireEvent(BoardChangeEvent.newPebbleKilledEvent(target, victim,
+					sourceRow, sourceColumn, targetRow, targetColumn));
 		
 		return (true);
 	}
@@ -149,6 +314,50 @@ public class Board {
 	 */
 	public void removeBoardChangeListener(BoardChangeListener changeListener) {
 		boardChangeListeners.remove(changeListener);
+	}
+	
+	/**
+	 * Returns the coordinates of the corner nearest to the given point
+	 * in the grid. If the point given is out of bounds, then null is
+	 * returned instead.
+	 *
+	 * @param row - the row of the point
+	 * @param column - the column of the point
+	 */
+	public static int[] nearestCornerTo(int row, int column) {
+		if(!inBounds(row, column))
+			return (null);
+		
+		int[] cornerCoordinates = new int[2];
+	
+		if(row <= 2) {
+			cornerCoordinates[0] = 0;
+		} else {
+			cornerCoordinates[0] = 5;
+		}
+		
+		if(column <= 2) {
+			cornerCoordinates[1] = 0;
+		} else {
+			cornerCoordinates[1] = 5;
+		}
+		
+		return (cornerCoordinates);
+	}
+	
+	/**
+	 * Returns the integral distance between the given point and the nearest
+	 * corner. This distance is equal to the sum of the (signed) differences
+	 * between the row and column coordinates, e.g. distance b/w (0,0) and
+	 * (1,1) is 2 but the distance b/w (1,1) and (0,0) is -2.
+	 * 
+	 * @param row - the row of the given point
+	 * @param column - the column of the given point
+	 */
+	public static int nearestIntegralCornerDistance(int row, int column) {
+		int[] nearestCorner = nearestCornerTo(row, column);
+		
+		return ((nearestCorner[0] - row) + (nearestCorner[1] - column));
 	}
 	
 	/**
@@ -189,9 +398,10 @@ public class Board {
 	
 	/**
 	 * Instantiates a new board & fills its grid with newly constructed points
-	 * that can hold pebbles placed by both players. It is the responsibility
-	 * of the <tt>Game</tt> controller object to initially place the pebbles
-	 * properly.
+	 * that can hold pebbles placed by both players. The external loop
+	 * connectors also are linked proper (using <tt>linkConnector()</tt>). It
+	 * is the responsibility of the <tt>Game</tt> controller object to
+	 * initially place the pebbles properly.
 	 * 
 	 * @return the newly created, but filled, board
 	 */
@@ -203,7 +413,15 @@ public class Board {
 				newBoard.grid[rowIdx][colIdx] = new Point();
 			}
 		}
-
+		
+		for(Connector innerCircuit : newBoard.innerCircuits) {
+			newBoard.linkConnector(innerCircuit);
+		}
+		
+		for(Connector outerCircuit : newBoard.outerCircuits) {
+			newBoard.linkConnector(outerCircuit);
+		}
+		
 		return (newBoard);
 	}
 	

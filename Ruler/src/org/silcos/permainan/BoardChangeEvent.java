@@ -89,4 +89,17 @@ public class BoardChangeEvent {
 		return (e);
 	}
 	
+	static BoardChangeEvent newPebbleKilledEvent(Pebble source, Pebble victim,
+			Integer srcRow, Integer srcColumn, Integer targetRow,
+			Integer targetColumn) {
+		BoardChangeEvent e = new BoardChangeEvent(BoardChangeType.CAPTURE_PEBBLE);
+		e.setUserData("sourceRow", srcRow);
+		e.setUserData("sourceColumn", srcColumn);
+		e.setUserData("targetRow", targetRow);
+		e.setUserData("targetColumn", targetColumn);
+		e.setUserData("target", source);
+		e.setUserData("victim", victim);
+		return (e);
+	}
+	
 }

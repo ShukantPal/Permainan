@@ -12,6 +12,22 @@ public class Game {
 		this.otherPlayer = null;
 	}
 	
+	public Connector externalConnectorAt(int row, int column) {
+		return (gameBoard.externalConnectorAt(row, column));
+	}
+	
+	public Connector innerCircuit(int index) {
+		return (gameBoard.innerCircuit(index));
+	}
+	
+	public Connector outerCircuit(int index) {
+		return (gameBoard.outerCircuit(index));
+	}
+	
+	public Pebble pebbleAt(int row, int column) {
+		return (gameBoard.pebbleAt(row, column));
+	}
+	
 	public Player getStarterPlayer() {
 		return (starterPlayer);
 	}
@@ -20,6 +36,12 @@ public class Game {
 		return (otherPlayer);
 	}
 	
+	/**
+	 * Registers the starter player (that plays the first move) to this game,
+	 * so that it can be notified. Once registered, a player cannot be changed.
+	 * 
+	 * @param starterPlayer - <tt>Player</tt> that will start the game
+	 */
 	public void setStarterPlayer(Player starterPlayer) {
 		if(this.starterPlayer != null) {
 			System.err.println("Warning : Game player change attempt while already set (starter)");
@@ -29,6 +51,12 @@ public class Game {
 		this.starterPlayer = starterPlayer;
 	}
 	
+	/**
+	 * Registers the other player (that doesn't start the game), to this game,
+	 * so that it can be notified. Once registered, a player cannot be changed.
+	 * 
+	 * @param otherPlayer - <tt>Player</tt> that will not start the game
+	 */
 	public void setOtherPlayer(Player otherPlayer) {
 		if(this.otherPlayer != null) {
 			System.err.println("Warning : Game player change attempt while already set (other)");
@@ -38,6 +66,11 @@ public class Game {
 		this.otherPlayer = otherPlayer;
 	}
 	
+	/**
+	 * Initializes the game board by placing all the pebbles initially
+	 * owned by the two players (that should be registered before calling
+	 * this method), on the board at their respective positions.
+	 */
 	public void placeAllPebbles() {
 		int pebbleCount;
 		
@@ -58,9 +91,45 @@ public class Game {
 		}
 	}
 	
+	/**
+	 * <p>
+	 * Acknowledges the input given by the user to move the pebble from
+	 * (sourceRow, sourceColumn) to (targetRow, targetColumn). If the given
+	 * input forms a valid move, then the pebble is actually moved, and a
+	 * <tt>BoardChangeEvent</tt> is fired of type <tt>MOVE_PEBBLE</tt>.
+	 * 
+	 * <p>
+	 * The front-end should not inform any other module about the change,
+	 * as it will be notified by the board, if it is registered as an
+	 * <tt>BoardChangeListener</tt>.
+	 * 
+	 * @param sourceRow - the row of the pebble to be moved
+	 * @param sourceColumn - the column of the pebble to be moved
+	 * @param targetRow - destination row for the pebble
+	 * @param targetColumn - destination column for the pebble
+	 * @see org.silcos.permanin.Board.movePebble
+	 */
 	public void notifyInput(int sourceRow, int sourceColumn,
 			int targetRow, int targetColumn) {
 		gameBoard.movePebble(sourceRow, sourceColumn, targetRow, targetColumn);
+	}
+	
+	/**
+	 * <p>
+	 * Acknowledges the input given by the user to move the pebble at
+	 * (sourceRow, sourceColumn) through the external connector associated
+	 * with it, to the stored destination.
+	 * 
+	 * @param sourceRow
+	 * @param sourceColumn
+	 */
+	public void notifyLoopInput(int sourceRow, int sourceColumn) {
+		Connector loop = gameBoard.externalConnectorAt(sourceRow, sourceColumn);
+		
+		if(loop.row0() == sourceRow)
+			loop.moveThroughConnector(gameBoard, true);
+		else
+			loop.moveThroughConnector(gameBoard, false);
 	}
 	
 	public void addBoardChangeListener(BoardChangeListener changeListener) {
