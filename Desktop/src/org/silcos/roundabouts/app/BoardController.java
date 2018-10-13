@@ -1,28 +1,27 @@
-package org.silcos.permainan.app;
+package org.silcos.roundabouts.app;
 
 import java.io.IOException;
 import java.util.Arrays;
 
-import org.silcos.permainan.Board;
-import org.silcos.permainan.BoardChangeEvent;
-import org.silcos.permainan.Connector;
-import org.silcos.permainan.ConnectorOrientation;
-import org.silcos.permainan.Game;
-import org.silcos.permainan.Pebble;
-import org.silcos.permanin.control.BoardInput;
+import org.silcos.roundabouts.Board;
+import org.silcos.roundabouts.BoardChangeEvent;
+import org.silcos.roundabouts.Connector;
+import org.silcos.roundabouts.ConnectorOrientation;
+import org.silcos.roundabouts.Game;
+import org.silcos.roundabouts.Pebble;
+import org.silcos.roundabouts.UIAdapter;
+import org.silcos.roundabouts.control.BoardInput;
 
 import javafx.animation.PathTransition;
 import javafx.animation.PathTransition.OrientationType;
-import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.beans.value.ObservableValue;
 import javafx.event.ActionEvent;
-import javafx.event.Event;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.geometry.Point3D;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.input.DragEvent;
 import javafx.scene.input.TransferMode;
@@ -42,6 +41,7 @@ import javafx.util.Duration;
 public final class BoardController {
 	
 	private Game gameInstance;
+	private BoardUIAdapter visualAdapter;
 	
 	@FXML
 	private Pane userGrid;
@@ -53,6 +53,54 @@ public final class BoardController {
 	private ScrollPane gameView;
 	
 	private volatile double pwidth;
+	
+	private class BoardUIAdapter extends UIAdapter {
+		
+		@Override
+		public void invokeLoopAnimation(int srcRow, int srcColumn) {
+			Platform.runLater(() -> {				
+				Connector loopData = gameInstance.externalConnectorAt(
+						srcRow, srcColumn);
+				
+				if(loopData != null) {
+					PathTransition loopTransition = new PathTransition();
+					Arc cloop = pointLoopPath(srcRow, srcColumn);
+					
+					loopTransition.setDuration(Duration.millis(500));
+					loopTransition.setPath(cloop);
+					loopTransition.setNode(inputGrid[srcRow][srcColumn]);
+					loopTransition.setCycleCount(1);
+					loopTransition.setOrientation(OrientationType.NONE);
+	
+					loopTransition.setOnFinished(new EventHandler<ActionEvent>(){
+						@Override
+						public void handle(ActionEvent e) {
+							if(e.getSource() instanceof PathTransition) {
+								PathTransition src = (PathTransition) e.getSource();
+								BoardInput node = (BoardInput) src.getNode();
+								
+								loopTransition.stop();
+								
+								node.relocate(25 + 5 + (node.column() + 1.5) * pwidth, 
+										25 + 5 + (node.row() + 1.5) * pwidth);
+								node.setTranslateX(0);
+								node.setTranslateY(0);
+								node.rotationAxisProperty().setValue(Point3D.ZERO);
+								
+								gameInstance.notifyLoopInput(node.row(), node.column());
+								e.consume();
+							}
+						}
+					});
+					
+					loopTransition.play();
+				} else {
+					System.err.println("Warning *:* Connector not found");
+				}
+			});
+		}
+		
+	}
 	
 	private int[] pointAlmostAt(double pixelRow, double pixelHeight) {
 		int[] point = new int[2];
@@ -155,6 +203,11 @@ public final class BoardController {
 					BoardInput.isPebbleData(e.getDragboard().getString())) {
 				int[] sourceInput = BoardInput.toCoordinates(
 						e.getDragboard().getString());
+				
+				if(gameInstance.getActivePlayer() != gameInstance.pebbleAt(
+						sourceInput[0], sourceInput[1]).owner())
+					return;
+				
 				int[] destinationInput =
 						new int[2];
 				Connector targetLoop = gameInstance
@@ -213,54 +266,22 @@ public final class BoardController {
 				String pebbleData = e.getDragboard().getString();
 				int[] pebbleCoordinates = BoardInput.toCoordinates(pebbleData);
 								
-				Connector loopData = gameInstance.externalConnectorAt(
+				visualAdapter.invokeLoopAnimation(
 						pebbleCoordinates[0], pebbleCoordinates[1]);
-				
-				if(loopData != null) {
-					PathTransition loopTransition = new PathTransition();
-					Arc cloop = pointLoopPath(pebbleCoordinates[0], pebbleCoordinates[1]);
-					
-					loopTransition.setDuration(Duration.millis(500));
-					loopTransition.setPath(cloop);
-					loopTransition.setNode(inputGrid[pebbleCoordinates[0]][pebbleCoordinates[1]]);
-					loopTransition.setCycleCount(1);
-					loopTransition.setOrientation(OrientationType.NONE);
-
-					loopTransition.setOnFinished(new EventHandler<ActionEvent>(){
-						@Override
-						public void handle(ActionEvent e) {
-							if(e.getSource() instanceof PathTransition) {
-								PathTransition src = (PathTransition) e.getSource();
-								BoardInput node = (BoardInput) src.getNode();
-								
-								loopTransition.stop();
-								
-								node.relocate(25 + 5 + (node.column() + 1.5) * pwidth, 
-										25 + 5 + (node.row() + 1.5) * pwidth);
-								node.setTranslateX(0);
-								node.setTranslateY(0);
-								node.rotationAxisProperty().setValue(Point3D.ZERO);
-								
-								gameInstance.notifyLoopInput(node.row(), node.column());
-								e.consume();
-							}
-						}
-					});
-					
-					loopTransition.play();
-				} else {
-					System.err.println("Warning *:* Connector not found");
-				}
 			}
 	
 			e.consume();
 		}
+		
 	};
 	
 	private BoardController(Game gameInstance) {
 		this.gameInstance = gameInstance;
 		this.inputGrid = new BoardInput[6][6];
 		this.gridLoops = new Path[3];
+		this.visualAdapter = new BoardUIAdapter();
+		
+		gameInstance.setVisualAdapter(visualAdapter);
 		
 		gameInstance.addBoardChangeListener(
 					(BoardChangeEvent e) -> {
@@ -268,8 +289,11 @@ public final class BoardController {
 						case PLACE_PEBBLE:
 							int row = (Integer) e.getUserData("targetRow");
 							int column = (Integer) e.getUserData("targetColumn");
-							inputGrid[row][column].putPebble(
-									(Pebble) e.getUserData("target"));
+							
+							Platform.runLater(() -> {
+								inputGrid[row][column].putPebble(
+										(Pebble) e.getUserData("target"));
+							});
 							break;
 						case MOVE_PEBBLE:
 						case CAPTURE_PEBBLE:
@@ -279,9 +303,10 @@ public final class BoardController {
 							int tarColumn = (Integer) e.getUserData("targetColumn");
 							Pebble peb = (Pebble) e.getUserData("target");
 							
-							inputGrid[srcRow][srcColumn].putPebble(null);
-							inputGrid[tarRow][tarColumn].putPebble(peb);
-							
+							Platform.runLater(() -> {
+								inputGrid[srcRow][srcColumn].putPebble(null);
+								inputGrid[tarRow][tarColumn].putPebble(peb);
+							});
 						default:
 							break;
 						}

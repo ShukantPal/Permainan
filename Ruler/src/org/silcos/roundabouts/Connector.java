@@ -1,4 +1,4 @@
-package org.silcos.permainan;
+package org.silcos.roundabouts;
 
 import java.util.HashMap;
 
@@ -117,6 +117,20 @@ public class Connector {
 	public void setLink1(ConnectorOrientation link1) {
 		if(this.link1 == ConnectorOrientation.UNDEFINED)
 			this.link1 = link1;
+	}
+	
+	public int[] otherEnd(int row, int column) {
+		int[] otherPoint = new int[2];
+		
+		if(row == row0()) {
+			otherPoint[0] = row1;
+			otherPoint[1] = column1;
+		} else {
+			otherPoint[0] = row0;
+			otherPoint[1] = column0;
+		}
+		
+		return (otherPoint);
 	}
 	
 	public boolean activableWith0(int row, int column, int adjust) {

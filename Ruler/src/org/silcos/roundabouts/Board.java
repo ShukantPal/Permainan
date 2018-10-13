@@ -1,9 +1,9 @@
-package org.silcos.permainan;
+package org.silcos.roundabouts;
 
 import java.util.LinkedList;
 
 /**
- * Holds the state of the Permanin game board.
+ * Holds the state of the Permainan game board.
  * 
  * <p>
  * Corners of this board are accessed using their indexes. They are
@@ -142,6 +142,13 @@ public class Board {
 		};
 	}
 	
+	/**
+	 * Returns the connector associated with the point at the given
+	 * coordinates.
+	 * 
+	 * @param row - row of the point
+	 * @param column - column of the point
+	 */
 	public Connector externalConnectorAt(int row, int column) {
 		if(inBounds(row, column)) {
 			return (grid[row][column].getExternalConnector());
@@ -314,6 +321,60 @@ public class Board {
 	 */
 	public void removeBoardChangeListener(BoardChangeListener changeListener) {
 		boardChangeListeners.remove(changeListener);
+	}
+	
+	/**
+	 * Returns whether the point at the given coordinates is on the edge
+	 * of the board or not.
+	 * 
+	 * @param row - row of the point
+	 * @param column - column of the point
+	 */
+	public static boolean isEdgePoint(int row, int column) {
+		return (row == 0 || row == 5 || column == 0 || column == 5);
+	}
+
+	/**
+	 * Returns whether the given point lies on an <b>edge</b> but is <b>
+	 * not a corner</b> point.
+	 * 
+	 * @param row - row of the point
+	 * @param column - column of the point.
+	 */
+	public static boolean isEdgeButNotCornerPoint(int row, int column) {
+		if(row == 0 || row == 5) {
+			if(column == 0 || column == 5) {
+				return (true);
+			} else {
+				return (false);
+			}
+		} else {
+			return (false);
+		}
+	}
+	
+	/**
+	 * Returns the direction of the perpendicular on the edge at which the
+	 * given non-corner edge-point lies. This is opposite to the orientation
+	 * of the loop-connector for the given point w.r.t to it. If the given
+	 * point is a corner, then results will be partial and if it isn't a
+	 * edge-point, then <tt>UNDEFINED</tt> will be returned.
+	 * 
+	 * @param row - row of the non-corner edge point
+	 * @param column - column of the non-corner edge point
+	 */
+	public static ConnectorOrientation inwardPerpendicular(int row, int column) {
+		if(row == 0) {
+			return (ConnectorOrientation.DOWN);
+		} else if(row == 5) {
+			return (ConnectorOrientation.UP);
+		} else if(column == 0) {
+			return (ConnectorOrientation.RIGHT);
+		} else if(column == 5) {
+			return (ConnectorOrientation.LEFT);
+		} else {
+			return (ConnectorOrientation.UNDEFINED);
+		}
 	}
 	
 	/**

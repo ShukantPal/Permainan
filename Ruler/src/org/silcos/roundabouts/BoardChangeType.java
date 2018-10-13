@@ -1,4 +1,4 @@
-package org.silcos.permainan;
+package org.silcos.roundabouts;
 
 public enum BoardChangeType {
 	PLACE_PEBBLE,

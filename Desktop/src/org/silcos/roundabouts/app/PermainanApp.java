@@ -1,6 +1,6 @@
-package org.silcos.permainan.app;
+package org.silcos.roundabouts.app;
 
-import org.silcos.permainan.Game;
+import org.silcos.roundabouts.Game;
 
 import javafx.application.Application;
 import javafx.stage.Stage;
@@ -17,8 +17,8 @@ public class PermainanApp extends Application {
 		gameInstances = new Game[]{ Game.doubleUserGame() };
 		
 		gameStage.setScene(BoardController.newBoardScene(gameInstances[0]));
-		gameStage.setHeight(800);
-		gameStage.setWidth(800);
+		gameStage.setHeight(1000);
+		gameStage.setWidth(1000);
 		gameStage.setTitle("Permanin/Surakurta Game");
 		gameStage.show();
 		

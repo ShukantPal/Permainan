@@ -1,7 +1,7 @@
-package org.silcos.permanin.control;
+package org.silcos.roundabouts.control;
 
-import org.silcos.permainan.Game;
-import org.silcos.permainan.Pebble;
+import org.silcos.roundabouts.Game;
+import org.silcos.roundabouts.Pebble;
 
 import javafx.event.EventHandler;
 import javafx.geometry.Insets;
